@@ -165,7 +165,7 @@ void matmult_gpu1(int m, int n, int k, double *A, double *B, double *C)
     cudaMemcpy(device_a, A, m * k * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice);
 
-    dim3 DimGrid(n + BS - 1) / BS, (m + BS - 1) / BS));
+    dim3 DimGrid((n + BS - 1) / BS, (m + BS - 1) / BS);
     dim3 DimBlock(BS, BS);
 
     matmult_gpu1_thread <<< DimGrid, DimBlock >>> (m, n, k, device_a, device_b, device_c);
@@ -179,16 +179,16 @@ void matmult_gpu1(int m, int n, int k, double *A, double *B, double *C)
     cudaFree(device_c);
 }
 
-__global__ void matmult_gpu2_thread(int m, int n, int k, double *A, double *B, double *C, int bs)
+__global__ void matmult_gpu2_thread(int m, int n, int k, double *A, double *B, double *C)
 {
-    __shared__ double A_smem[bs][bs];
+    __shared__ double A_smem[32][32];
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     double sum = 0.0;
     int h;
     for (h = 0; h < n; h++)
     {
-        if (i < m)
+        if (row < m)
         {
             A_smem[h][threadIdx.x] = A[row * n + h];
         }
@@ -196,13 +196,13 @@ __global__ void matmult_gpu2_thread(int m, int n, int k, double *A, double *B, d
         sum += A_smem[h][threadIdx.x] * B[n * h + col];
     }
 
-    if (i < m)
+    if (row < m)
     {
-        C[i * row + col] = sum;
+        C[n * row + col] = sum;
     }
 }
 
-void matmult_gpu2(int m, int n, int k, double *A, double *B, double *C, int bs)
+void matmult_gpu2(int m, int n, int k, double *A, double *B, double *C)
 {
     double *device_a, *device_b, *device_c;
     cudaMalloc((void **) &device_a, m * k * sizeof(double));
@@ -212,10 +212,10 @@ void matmult_gpu2(int m, int n, int k, double *A, double *B, double *C, int bs)
     cudaMemcpy(device_a, A, m * k * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice);
 
-    dim3 DimGrid(n + BS - 1) / BS, (m + BS - 1) / BS));
+    dim3 DimGrid((n + BS - 1) / BS, (m + BS - 1) / BS);
     dim3 DimBlock(BS, BS);
 
-    matmult_gpu2_thread <<< DimGrid, DimBlock >>> (m, n, k, device_a, device_b, device_c, bs);
+    matmult_gpu2_thread <<< DimGrid, DimBlock >>> (m, n, k, device_a, device_b, device_c);
 
     cudaDeviceSynchronize();
 
@@ -241,10 +241,11 @@ void matmult_gpu5(int m, int n, int k, double *A, double *B, double *C)
 
 }
 
-void matmult_gpulib(int m, int n, int k, double *A, double *B, double *C)
+void matmult_gpulib(int m, int n, int k, const double *A, const double *B, double *C)
 {
     cublasHandle_t handle;
     cublasCreate(&handle);
-    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, 1.0, A, k, B, n, 0.0, C, n);
+    const double alpha = 1.0, beta = 0.0;
+    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A, k, B, n, &beta, C, n);
     cublasDestroy(handle);
 }
