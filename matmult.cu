@@ -144,9 +144,10 @@ __global__ void matmult_gpu1_thread(int m, int n, int k, double *A, double *B, d
     if (row <= m && col <= n)
     {
         double sum = 0.0;
-        for (int h = 0; h < k; h++)
+        int h;
+        for (h = 0; h < k; h++)
         {
-            sum += A[k * row + h] * B[n * h + col]);
+            sum += A[k * row + h] * B[n * h + col];
         }
         C[n * row + col] = sum;
     }
@@ -154,17 +155,17 @@ __global__ void matmult_gpu1_thread(int m, int n, int k, double *A, double *B, d
 
 void matmult_gpu1(int m, int n, int k, double *A, double *B, double *C)
 {
-	double *device_a, *device_b, *device_c;
-	cudaMalloc((void**) &device_a, m * k * sizeof(double));
-	cudaMalloc((void**) &device_b, k * n * sizeof(double));
-	cudaMalloc((void**) &device_c, m * n * sizeof(double));
+    double *device_a, *device_b, *device_c;
+    cudaMalloc((void **) &device_a, m * k * sizeof(double));
+    cudaMalloc((void **) &device_b, k * n * sizeof(double));
+    cudaMalloc((void **) &device_c, m * n * sizeof(double));
 
-	cudaMemcpy(device_a, A, m * k * sizeof(double), cudaMemcpyHostToDevice);
-	cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_a, A, m * k * sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice);
 
-	int block_size = 256;
+    int block_size = 256;
 
-	dim3 DimGrid(n + block_size - 1) / block_size, (m + block_size - 1) / block_size));
+    dim3 DimGrid(n + block_size - 1) / block_size, (m + block_size - 1) / block_size));
     dim3 DimBlock(block_size, block_size);
 
     matmult_gpu1_thread <<< DimGrid, DimBlock >>> (m, n, k, device_a, device_b, device_c);
@@ -178,9 +179,53 @@ void matmult_gpu1(int m, int n, int k, double *A, double *B, double *C)
     cudaFree(device_c);
 }
 
-void matmult_gpu2(int m, int n, int k, double *A, double *B, double *C)
+__global__ void matmult_gpu2_thread(int m, int n, int k, double *A, double *B, double *C, int bs)
 {
+    __shared__ double A_smem[bs][bs];
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    double sum = 0.0;
+    int h;
+    for (h = 0; h < n; h++)
+    {
+        if (i < m)
+        {
+            A_smem[h][threadIdx.x] = A[row * n + h];
+        }
+        __syncthreads();
+        sum += A_smem[h][threadIdx.x] * B[n * h + col];
+    }
 
+    if (i < m)
+    {
+        C[i * row + col] = sum;
+    }
+}
+
+void matmult_gpu2(int m, int n, int k, double *A, double *B, double *C, int bs)
+{
+    double *device_a, *device_b, *device_c;
+    cudaMalloc((void **) &device_a, m * k * sizeof(double));
+    cudaMalloc((void **) &device_b, k * n * sizeof(double));
+    cudaMalloc((void **) &device_c, m * n * sizeof(double));
+
+    cudaMemcpy(device_a, A, m * k * sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice);
+
+    int block_size = 256;
+
+    dim3 DimGrid(n + block_size - 1) / block_size, (m + block_size - 1) / block_size));
+    dim3 DimBlock(block_size, block_size);
+
+    matmult_gpu1_thread <<< DimGrid, DimBlock >>> (m, n, k, device_a, device_b, device_c, bs);
+
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(C, device_c, m * n * sizeof(double), cudaMemcpyDeviceToHost);
+
+    cudaFree(device_a);
+    cudaFree(device_b);
+    cudaFree(device_c);
 }
 
 void matmult_gpu3(int m, int n, int k, double *A, double *B, double *C)

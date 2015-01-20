@@ -1,6 +1,6 @@
 TARGET	= libmatmult.so
 LIBSRCS	= 
-LIBOBJS	= matmult.c
+LIBOBJS	= matmult.cu
 
 OPT	= -g -arch=sm_20
 PIC	= -Xcompiler -fpic
