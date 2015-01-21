@@ -186,7 +186,7 @@ extern "C" {
     __global__ void matmult_gpu2_kernel(int m, int n, int k, double *A, double *B, double *C)
     {
         int col = threadIdx.x + blockIdx.x * blockDim.x;
-        int row = threadIdx.y + blockIdx.y * blockDim.y * 2;
+        int row = (threadIdx.y + blockIdx.y * blockDim.y) * 2;
 
         double sum = 0.0;
         int i;
@@ -220,7 +220,7 @@ extern "C" {
         checkCudaErrors(cudaMemcpy(device_a, A, m * k * sizeof(double), cudaMemcpyHostToDevice));
         checkCudaErrors(cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice));
 
-        dim3 DimGrid((n / 2 + BLOCK_SIZE - 1) / BLOCK_SIZE, (m / 2 + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 DimGrid((n + BLOCK_SIZE - 1) / BLOCK_SIZE, (m / 2 + BLOCK_SIZE - 1) / BLOCK_SIZE);
         dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE);
 
         matmult_gpu2_kernel <<< DimGrid, DimBlock >>> (m, n, k, device_a, device_b, device_c);
@@ -237,7 +237,50 @@ extern "C" {
 
     __global__ void matmult_gpu3_kernel(int m, int n, int k, double *A, double *B, double *C)
     {
+        int col = (threadIdx.x + blockIdx.x * blockDim.x) * 2;
+        int row = (threadIdx.y + blockIdx.y * blockDim.y) * 2;
 
+        double sum = 0.0;
+        int i;
+        if (row < m && col < n)
+        {
+            for (i = 0; i < k; i++)
+            {
+                sum += A[k * row + i] * B[n * i + col];
+            }
+            C[n * row + col] = sum;
+        }
+        row += 1;
+        if (row < m && col < n)
+        {
+            sum = 0.0;
+            for (i = 0; i < k; i++)
+            {
+                sum += A[k * row + i] * B[n * i + col];
+            }
+            C[n * row + col] = sum;
+        }
+        row -= 1;
+        col += 1;
+        if (row < m && col < n)
+        {
+            sum = 0.0;
+            for (i = 0; i < k; i++)
+            {
+                sum += A[k * row + i] * B[n * i + col];
+            }
+            C[n * row + col] = sum;
+        }
+        row += 1;
+        if (row < m && col < n)
+        {
+            sum = 0.0;
+            for (i = 0; i < k; i++)
+            {
+                sum += A[k * row + i] * B[n * i + col];
+            }
+            C[n * row + col] = sum;
+        }
     }
 
     void matmult_gpu3(int m, int n, int k, double *A, double *B, double *C)
