@@ -6,7 +6,7 @@
 extern "C" {
 #include <cblas.h>
 
-#define BLOCK_SIZE 32
+#define BLOCK_SIZE 16
 
     void matmult_nat(int m, int n, int k, double *A, double *B, double *C)
     {
@@ -352,9 +352,49 @@ extern "C" {
         checkCudaErrors(cudaFree(device_c));
     }
 
+	/*
+A: m * k
+B: k * n
+C: m * n
+*/
     __global__ void matmult_gpu5_kernel(int m, int n, int k, double *A, double *B, double *C)
     {
+	__shared__ double A_sub[BLOCK_SIZE][BLOCK_SIZE];
+	__shared__ double B_sub[BLOCK_SIZE][BLOCK_SIZE];
+	//different sizes block indencis
+	int blockX = blockIdx.x;
+	int blockY = blockIdx.y;
+	int threadX = threadIdx.x;
+	int threadY = threadIdx.y;
+	int row = blockY * BLOCK_SIZE + threadY;
+	int col = blockX * BLOCK_SIZE + threadX;
+	double sum = 0.0;
+	
+	int i,j;
+	for(i = 0; i < k; i+= BLOCK_SIZE) {
+		//calculating the A & B blocks
+		if (row < m && (i+threadX) < k)
+		{
+			A_sub[threadY][threadX] = A[(row * k) + i + threadX];
+		} else {
+			A_sub[threadY][threadX] = 0.0;
+		}	
+		if(col < n && (i + threadY) < k) {
+			B_sub[threadY][threadX] = B[(i + threadY) * n + col];
+		} else {
+			B_sub[threadY][threadX] = 0.0;		
+		}
+		__syncthreads();
 
+		//summing the blocks after they are calculated
+		for(j = 0; j < BLOCK_SIZE; ++j) {
+			sum += A_sub[threadY][j] * B_sub[j][threadX];		
+		}
+		__syncthreads();
+	}
+	if(row < m && col < n) {
+		C[row * n + col] = sum;	
+	}
     }
 
     void matmult_gpu5(int m, int n, int k, double *A, double *B, double *C)
@@ -367,7 +407,7 @@ extern "C" {
         checkCudaErrors(cudaMemcpy(device_a, A, m * k * sizeof(double), cudaMemcpyHostToDevice));
         checkCudaErrors(cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice));
 
-        dim3 DimGrid((n / 2 + BLOCK_SIZE - 1) / BLOCK_SIZE, (m / 2 + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 DimGrid((n-1)/BLOCK_SIZE+1,(m-1)/BLOCK_SIZE+1);
         dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE);
 
         matmult_gpu5_kernel <<< DimGrid, DimBlock >>> (m, n, k, device_a, device_b, device_c);
