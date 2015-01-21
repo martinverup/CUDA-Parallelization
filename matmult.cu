@@ -366,49 +366,47 @@ extern "C" {
         checkCudaErrors(cudaFree(device_c));
     }
 
-	/*
-A: m * k
-B: k * n
-C: m * n
-*/
     __global__ void matmult_gpu5_kernel(int m, int n, int k, double *A, double *B, double *C)
     {
-	__shared__ double A_sub[BLOCK_SIZE][BLOCK_SIZE];
-	__shared__ double B_sub[BLOCK_SIZE][BLOCK_SIZE];
-	//different sizes block indencis
-	int blockX = blockIdx.x;
-	int blockY = blockIdx.y;
-	int threadX = threadIdx.x;
-	int threadY = threadIdx.y;
-	int row = blockY * BLOCK_SIZE + threadY;
-	int col = blockX * BLOCK_SIZE + threadX;
-	double sum = 0.0;
-	
-	int i,j;
-	for(i = 0; i < k; i+= BLOCK_SIZE) {
-		//calculating the A & B blocks
-		if (row < m && (i+threadX) < k)
-		{
-			A_sub[threadY][threadX] = A[(row * k) + i + threadX];
-		} else {
-			A_sub[threadY][threadX] = 0.0;
-		}	
-		if(col < n && (i + threadY) < k) {
-			B_sub[threadY][threadX] = B[(i + threadY) * n + col];
-		} else {
-			B_sub[threadY][threadX] = 0.0;		
-		}
-		__syncthreads();
+        __shared__ double A_s[BLOCK_SIZE][BLOCK_SIZE];
+        __shared__ double B_s[BLOCK_SIZE][BLOCK_SIZE];
 
-		//summing the blocks after they are calculated
-		for(j = 0; j < BLOCK_SIZE; ++j) {
-			sum += A_sub[threadY][j] * B_sub[j][threadX];		
-		}
-		__syncthreads();
-	}
-	if(row < m && col < n) {
-		C[row * n + col] = sum;	
-	}
+        int row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
+        int col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+
+        double sum = 0.0;
+
+        int i, j;
+        for (i = 0; i < k; i += BLOCK_SIZE)
+        {
+            if (row < m && (i + threadIdx.x) < k)
+            {
+                A_s[threadIdx.y][threadIdx.x] = A[(k * row) + i + threadIdx.x];
+            }
+            else
+            {
+                A_s[threadIdx.y][threadIdx.x] = 0.0;
+            }
+            if (col < n && (i + threadIdx.y) < k)
+            {
+                B_s[threadIdx.y][threadIdx.x] = B[(i + threadIdx.y) * n + col];
+            }
+            else
+            {
+                B_s[threadIdx.y][threadIdx.x] = 0.0;
+            }
+            __syncthreads();
+
+            for (j = 0; j < BLOCK_SIZE; ++j)
+            {
+                sum += A_s[threadIdx.y][j] * B_s[j][threadIdx.x];
+            }
+            __syncthreads();
+        }
+        if (row < m && col < n)
+        {
+            C[row * n + col] = sum;
+        }
     }
 
     void matmult_gpu5(int m, int n, int k, double *A, double *B, double *C)
