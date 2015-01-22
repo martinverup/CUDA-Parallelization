@@ -73,22 +73,22 @@ __global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double 
     int j = blockDim.y * blockIdx.y + threadIdx.y + 1;
     if (device)
     {
-        i = i - 1;
+        j = j - 1;
     }
-    if (((device && i < temp_N_half - 1) || (!device && i < temp_N_half)) && j < N - 1 && j > 0)
+    if (((device && j < temp_N_half - 1) || (!device && j < temp_N_half)) && i < N - 1 && i > 0)
     {
         // Calculate new value from surrounding points
-        if (!device && (i == temp_N_half - 1))
+        if (!device && (j == temp_N_half - 1))
         {
-            U_old[i * N + j] = (U[i * N + (j - 1)] + U[i * N + (j + 1)] + U[(i - 1) * N + j] + U_other[/*(i+1) * N +*/j] + (delta2 * F[i * N + j])) * 0.25;
+            U_old[j * N + i] = (U[j * N + (i - 1)] + U[j * N + (i + 1)] + U[(j - 1) * N + i] + U_other[/*(i+1) * N +*/i] + (delta2 * F[j * N + i])) * 0.25;
         }
-        else if (device && !i)
+        else if (device && !j)
         {
-            U_old[i * N + j] = (U[i * N + (j - 1)] + U[i * N + (j + 1)] + U_other[(temp_N_half - 1) * N + j] + U[(i + 1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
+            U_old[j * N + i] = (U[j * N + (i - 1)] + U[j * N + (i + 1)] + U_other[(temp_N_half - 1) * N + i] + U[(j + 1) * N + i] + (delta2 * F[j * N + i])) * 0.25;
         }
         else
         {
-            U_old[i * N + j] = (U[i * N + (j - 1)] + U[i * N + (j + 1)] + U[(i - 1) * N + j] + U[(i + 1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
+            U_old[j * N + i] = (U[j * N + (i - 1)] + U[j * N + (i + 1)] + U[(j - 1) * N + i] + U[(j + 1) * N + i] + (delta2 * F[j * N + i])) * 0.25;
         }
     }
 }
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
     double delta = 2.0 / ((double) N - 1.0);
     double delta2 = delta * delta;
 
-    dim3 DimBlock(BLOCK_SIZE / 2, BLOCK_SIZE);
+    dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE / 2);
     dim3 DimGrid((N + BLOCK_SIZE - 1) / BLOCK_SIZE, (N + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
     double *U_dev0;
