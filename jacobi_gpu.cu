@@ -47,8 +47,9 @@ void init(int N, double delta, double *U, double *U_old, double *F) {
 __global__ void jacobi(int N, double delta2, double *U, double *U_old, double *F) {  
 	int i = blockDim.x * blockIdx.x + threadIdx.x + 1;
 	int j = blockDim.y * blockIdx.y + threadIdx.y + 1;
-	if(i < N && j < N) {
+	if(i < N-1 && j < N-1 && i > 0 && j > 0) {
 			// Calculate new value from surrounding points
+			//printf("i,j (%d, %d)\n",i,j);
 			U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U[(i + 1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
 		    
 	}

@@ -65,9 +65,8 @@ __global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double 
 	int j = blockDim.y * blockIdx.y + threadIdx.y + 1;
 	if(device) {
 		i = i-1;
-		//printf("(i,j) is (%d,%d)\n",i,j);
 	}
-	if(i < temp_N_half && j < N) {
+	if(((device && i<temp_N_half-1) || (!device && i<temp_N_half)) && j < N-1 && j > 0) {
 			// Calculate new value from surrounding points
 			if(!device && (i == temp_N_half-1)) {
 				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U_other[/*(i+1) * N +*/j] + (delta2 * F[i * N + j])) * 0.25;
@@ -119,7 +118,7 @@ int main(int argc, char *argv[]) {
 	double delta = 2.0 / ((double) N - 1.0);
 	double delta2 = delta * delta;
 	
-	dim3 DimBlock(BLOCK_SIZE/2, BLOCK_SIZE);
+	dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE);
 	dim3 DimGrid((N+BLOCK_SIZE-1)/BLOCK_SIZE, (N + BLOCK_SIZE-1)/BLOCK_SIZE);
 	
 	double *U_dev0;
