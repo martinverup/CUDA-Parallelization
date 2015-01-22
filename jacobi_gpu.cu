@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <helper_cuda.h> 
+#define BLOCK_SIZE 16
 
 
 void init(int N, double delta, double *U, double *U_old, double *F) {
@@ -44,13 +45,11 @@ void init(int N, double delta, double *U, double *U_old, double *F) {
 
 __global__ void jacobi(int N, double delta2, double *U, double *U_old, double *F) {  
 	int i = blockDim.x * blockIdx.x + threadIdx.x + 1;
-	int j;
-	if(i <= N) {
-		for (j = 1; j < N-1; j++)
-		    {
+	int j = blockDim.y * blockIdx.y + threadIdx.y + 1;
+	if(i < N && j < N) {
 			// Calculate new value from surrounding points
 			U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U[(i + 1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
-		    }
+		    
 	}
 	__syncthreads();
 }
@@ -72,15 +71,15 @@ void print_matrix(int N, double *M)
 
 int main() {
 
-	int N = 512;
-	int k = 10000;
+	int N = 16;
+	int k = 1000;
 	int temp_N = N+2;
 	int size = temp_N * temp_N * sizeof(double);
 	double delta = 2.0 / ((double) N - 1.0);
 	double delta2 = delta * delta;
 	
-	dim3 DimBlock(32);
-	dim3 DimGrid((N+DimBlock.x-1)/DimBlock.x);
+	dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE);
+	dim3 DimGrid((N+BLOCK_SIZE-1)/BLOCK_SIZE,(N+BLOCK_SIZE-1)/BLOCK_SIZE);
 	
 	double *U_dev;
 	double *U_old_dev;

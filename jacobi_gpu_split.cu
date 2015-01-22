@@ -1,5 +1,7 @@
 #include <stdio.h>
-#include <helper_cuda.h> 
+#include <helper_cuda.h>
+
+#define BLOCK_SIZE 16
 
 
 void init(int N, double delta, double *U0, double *U_old0, double *U1, double *U_old1, double *F) {
@@ -57,16 +59,14 @@ void init(int N, double delta, double *U0, double *U_old0, double *U1, double *U
 	
 }
 
-__global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double *U_old, double *U_other, double *F, int device) {  
-	//printf("hej%d\n",temp_N_half);	
+__global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double *U_old, double *U_other, double *F, int device) {  	
 	int i = blockDim.x * blockIdx.x + threadIdx.x + 1;
-	int j;
+	int j = blockDim.y * blockIdx.y + threadIdx.y + 1;
 	if(device) {
 		i = i-1;
+		//printf("(i,j) is (%d,%d)\n",i,j);
 	}
-	if(i <= temp_N_half-1) {
-		for (j = 1; j < N-1; j++)
-		    {
+	if(i < temp_N_half && j < N) {
 			// Calculate new value from surrounding points
 			if(!device && (i == temp_N_half-1)) {
 				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U_other[/*(i) * N +*/1 + j] + (delta2 * F[i * N + j])) * 0.25;
@@ -74,7 +74,6 @@ __global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double 
 				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U_other[(temp_N_half-1) * N + j] + U[(i+1) * N + j] + (delta2 * F[i * N + j])) * 0.25;			
 			} else {
 				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U[(i+1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
-			}
 		    }
 	}
 	__syncthreads();
@@ -103,16 +102,15 @@ void print_matrix(int N, double *M0, double *M1)
 int main() {
 
 	int N = 16;
-	int k = 10000;
-	int bs = 4;
+	int k = 1000;
 	int N_half = N/2;
 	int temp_N = N+2;
 	int size = temp_N * temp_N * sizeof(double);
 	double delta = 2.0 / ((double) N - 1.0);
 	double delta2 = delta * delta;
 	
-	dim3 DimBlock(bs);
-	dim3 DimGrid((N_half+DimBlock.x-1)/DimBlock.x);
+	dim3 DimBlock(BLOCK_SIZE/2, BLOCK_SIZE);
+	dim3 DimGrid((N_half+BLOCK_SIZE-1)/BLOCK_SIZE, (N + BLOCK_SIZE-1)/BLOCK_SIZE);
 	
 	double *U_dev0;
 	double *U_dev1;
@@ -145,6 +143,7 @@ int main() {
 	checkCudaErrors(cudaMalloc((void**) &F_dev0, size));
 	//allocating memory on device1
 	cudaSetDevice(1);
+	cudaDeviceEnablePeerAccess(0,0);
 	checkCudaErrors(cudaMalloc((void**) &U_dev1,size/2));
 	checkCudaErrors(cudaMalloc((void**) &U_old_dev1,size/2));
 	checkCudaErrors(cudaMalloc((void**) &F_dev1, size));
@@ -155,6 +154,7 @@ int main() {
 	checkCudaErrors(cudaMemcpy(F_dev1, F_host, size, cudaMemcpyHostToDevice));
 
 	cudaSetDevice(0);
+	cudaDeviceEnablePeerAccess(1,0);
 	checkCudaErrors(cudaMemcpy(U_dev0, U_host0, size/2, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(U_old_dev0, U_old_host0, size/2, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(F_dev0, F_host, size, cudaMemcpyHostToDevice));
@@ -162,10 +162,8 @@ int main() {
 	int h;
 	for(h = 0; h < k; h++) {
 		cudaSetDevice(0);
-		cudaDeviceEnablePeerAccess(1,0);
 		jacobi<<<DimGrid, DimBlock>>>(temp_N, temp_N/2, delta2, U_dev0, U_old_dev0, U_dev1, F_dev0,0);
 		cudaSetDevice(1);
-		cudaDeviceEnablePeerAccess(0,0);
 		jacobi<<<DimGrid, DimBlock>>>(temp_N, temp_N/2, delta2, U_dev1, U_old_dev1,  U_dev0, F_dev1,1);
 		//swapping pointers
         	temp = U_dev0;
