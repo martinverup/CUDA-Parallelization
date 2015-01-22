@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
     for (h = 0; h < k; h++)
     {
         jacobi <<< DimGrid, DimBlock>>>(temp_N, delta2, U_dev, U_old_dev, F_dev);
-	checkCudaErrors(cudaDeviceSynchronize());
+        checkCudaErrors(cudaDeviceSynchronize());
         //swapping pointers
         temp = U_dev;
         U_dev = U_old_dev;

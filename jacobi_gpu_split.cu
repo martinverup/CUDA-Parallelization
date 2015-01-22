@@ -116,111 +116,114 @@ void print_matrix(int N, double *M0, double *M1)
     }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 
-	int N = 16;
-	int k = 1000;
+    int N = 16;
+    int k = 1000;
 
-	    if (argc > 1)
-	    {
-		N = atoi(argv[1]);
-	    }
-	    if (argc > 2)
-	    {
-		k = atoi(argv[2]);
-	    }
-	
-	int temp_N = N+2;
-	int size = temp_N * temp_N * sizeof(double);
-	double delta = 2.0 / ((double) N - 1.0);
-	double delta2 = delta * delta;
-	
-	dim3 DimBlock(BLOCK_SIZE/2, BLOCK_SIZE);
-	dim3 DimGrid((N+BLOCK_SIZE-1)/BLOCK_SIZE, (N + BLOCK_SIZE-1)/BLOCK_SIZE);
-	
-	double *U_dev0;
-	double *U_dev1;
-	double *U_old_dev0;
-	double *U_old_dev1;
-	double *F_dev1;
-	double *F_dev0;
-	double *temp;
+    if (argc > 1)
+    {
+        N = atoi(argv[1]);
+    }
+    if (argc > 2)
+    {
+        k = atoi(argv[2]);
+    }
 
-	double *U_host0;
-	double *U_host1;
-	double *U_old_host0;
-	double *U_old_host1;
-	double *F_host;
-	
-	//alloctating memory on host
-	U_host0 = (double *) malloc(size/2);
-	U_old_host0 = (double *) malloc(size/2);
-	U_host1 = (double *) malloc(size/2);
-	U_old_host1 = (double *) malloc(size/2);
-	F_host = (double *) malloc(size);
+    int temp_N = N + 2;
+    int size = temp_N * temp_N * sizeof(double);
+    double delta = 2.0 / ((double) N - 1.0);
+    double delta2 = delta * delta;
 
-	//initializing the arrays
-	init(N, delta, U_host0, U_old_host0, U_host1, U_old_host1, F_host);
-	
-	//allocating memory on device0
-	checkCudaErrors(cudaSetDevice(0));
-	checkCudaErrors(cudaMalloc((void**) &U_dev0,size/2));
-	checkCudaErrors(cudaMalloc((void**) &U_old_dev0,size/2));
-	checkCudaErrors(cudaMalloc((void**) &F_dev0, size));
-	//allocating memory on device1
-	cudaSetDevice(1);
-	cudaDeviceEnablePeerAccess(0,0);
-	checkCudaErrors(cudaMalloc((void**) &U_dev1,size/2));
-	checkCudaErrors(cudaMalloc((void**) &U_old_dev1,size/2));
-	checkCudaErrors(cudaMalloc((void**) &F_dev1, size));
+    dim3 DimBlock(BLOCK_SIZE / 2, BLOCK_SIZE);
+    dim3 DimGrid((N + BLOCK_SIZE - 1) / BLOCK_SIZE, (N + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
-	//copying memory from CPU to GPU
-	checkCudaErrors(cudaMemcpy(U_dev1, U_host1, size/2, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(U_old_dev1, U_old_host1, size/2, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(F_dev1, F_host, size, cudaMemcpyHostToDevice));
+    double *U_dev0;
+    double *U_dev1;
+    double *U_old_dev0;
+    double *U_old_dev1;
+    double *F_dev1;
+    double *F_dev0;
+    double *temp;
 
-	cudaSetDevice(0);
-	cudaDeviceEnablePeerAccess(1,0);
-	checkCudaErrors(cudaMemcpy(U_dev0, U_host0, size/2, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(U_old_dev0, U_old_host0, size/2, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(F_dev0, F_host, size, cudaMemcpyHostToDevice));
-	
-	int h;
-	for(h = 0; h < k; h++) {
-		cudaSetDevice(0);
-		jacobi<<<DimGrid, DimBlock>>>(temp_N, temp_N/2, delta2, U_dev0, U_old_dev0, U_dev1, F_dev0,0);
-		cudaSetDevice(1);
-		jacobi<<<DimGrid, DimBlock>>>(temp_N, temp_N/2, delta2, U_dev1, U_old_dev1,  U_dev0, F_dev1,1);
-		checkCudaErrors(cudaDeviceSynchronize());
-		//swapping pointers
-        	temp = U_dev0;
-                U_dev0 = U_old_dev0;
-                U_old_dev0 = temp;
-		temp = U_dev1;
-		U_dev1 = U_old_dev1;
-		U_old_dev1 = temp;
-	}
-	checkCudaErrors(cudaMemcpy(U_host1, U_dev1, size/2, cudaMemcpyDeviceToHost));
-	cudaSetDevice(0);
-	checkCudaErrors(cudaMemcpy(U_host0, U_dev0, size/2, cudaMemcpyDeviceToHost));
-	if (argc > 3)
-	{
-		if(!strcmp(argv[3],"p")) {
-			print_matrix(N, U_host0,U_host1);
-		}
-	}
-	//freeing the memory in the end
-	free(U_host0);
-	free(U_old_host0);
-	free(U_host1);
-	free(U_old_host1);
-	free(F_host);
-	checkCudaErrors(cudaFree(U_dev0));
-	checkCudaErrors(cudaFree(U_old_dev0));
-	checkCudaErrors(cudaFree(F_dev0));
-	cudaSetDevice(1);
-	checkCudaErrors(cudaFree(U_dev1));
-	checkCudaErrors(cudaFree(U_old_dev1));
-	checkCudaErrors(cudaFree(F_dev1));
-	return 0;
+    double *U_host0;
+    double *U_host1;
+    double *U_old_host0;
+    double *U_old_host1;
+    double *F_host;
+
+    //alloctating memory on host
+    U_host0 = (double *) malloc(size / 2);
+    U_old_host0 = (double *) malloc(size / 2);
+    U_host1 = (double *) malloc(size / 2);
+    U_old_host1 = (double *) malloc(size / 2);
+    F_host = (double *) malloc(size);
+
+    //initializing the arrays
+    init(N, delta, U_host0, U_old_host0, U_host1, U_old_host1, F_host);
+
+    //allocating memory on device0
+    checkCudaErrors(cudaSetDevice(0));
+    checkCudaErrors(cudaMalloc((void **) &U_dev0, size / 2));
+    checkCudaErrors(cudaMalloc((void **) &U_old_dev0, size / 2));
+    checkCudaErrors(cudaMalloc((void **) &F_dev0, size));
+    //allocating memory on device1
+    cudaSetDevice(1);
+    cudaDeviceEnablePeerAccess(0, 0);
+    checkCudaErrors(cudaMalloc((void **) &U_dev1, size / 2));
+    checkCudaErrors(cudaMalloc((void **) &U_old_dev1, size / 2));
+    checkCudaErrors(cudaMalloc((void **) &F_dev1, size));
+
+    //copying memory from CPU to GPU
+    checkCudaErrors(cudaMemcpy(U_dev1, U_host1, size / 2, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(U_old_dev1, U_old_host1, size / 2, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(F_dev1, F_host, size, cudaMemcpyHostToDevice));
+
+    cudaSetDevice(0);
+    cudaDeviceEnablePeerAccess(1, 0);
+    checkCudaErrors(cudaMemcpy(U_dev0, U_host0, size / 2, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(U_old_dev0, U_old_host0, size / 2, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(F_dev0, F_host, size, cudaMemcpyHostToDevice));
+
+    int h;
+    for (h = 0; h < k; h++)
+    {
+        cudaSetDevice(0);
+        jacobi <<< DimGrid, DimBlock>>>(temp_N, temp_N / 2, delta2, U_dev0, U_old_dev0, U_dev1, F_dev0, 0);
+        cudaSetDevice(1);
+        jacobi <<< DimGrid, DimBlock>>>(temp_N, temp_N / 2, delta2, U_dev1, U_old_dev1,  U_dev0, F_dev1, 1);
+        checkCudaErrors(cudaDeviceSynchronize());
+        //swapping pointers
+        temp = U_dev0;
+        U_dev0 = U_old_dev0;
+        U_old_dev0 = temp;
+        temp = U_dev1;
+        U_dev1 = U_old_dev1;
+        U_old_dev1 = temp;
+    }
+    checkCudaErrors(cudaMemcpy(U_host1, U_dev1, size / 2, cudaMemcpyDeviceToHost));
+    cudaSetDevice(0);
+    checkCudaErrors(cudaMemcpy(U_host0, U_dev0, size / 2, cudaMemcpyDeviceToHost));
+    if (argc > 3)
+    {
+        if (!strcmp(argv[3], "p"))
+        {
+            print_matrix(N, U_host0, U_host1);
+        }
+    }
+    //freeing the memory in the end
+    free(U_host0);
+    free(U_old_host0);
+    free(U_host1);
+    free(U_old_host1);
+    free(F_host);
+    checkCudaErrors(cudaFree(U_dev0));
+    checkCudaErrors(cudaFree(U_old_dev0));
+    checkCudaErrors(cudaFree(F_dev0));
+    cudaSetDevice(1);
+    checkCudaErrors(cudaFree(U_dev1));
+    checkCudaErrors(cudaFree(U_old_dev1));
+    checkCudaErrors(cudaFree(F_dev1));
+    return 0;
 }
