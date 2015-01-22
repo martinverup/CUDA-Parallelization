@@ -1,0 +1,37 @@
+TARGET = jacobi_gpu
+SRCS   =jacobi_gpu.cu
+OBJS   =$(SRCS:.cu=.o)
+TARGET2 = jacobi_gpu_split
+SRCS2   =jacobi_gpu_split.cu
+OBJS2   =$(SRCS2:.cu=.o)
+
+OPT	= -g -O3
+PIC	=
+XOPTS = -Xptxas=-v -lineinfo
+ARCH  = -arch=sm_20
+OMP   = -fopenmp
+
+CXX	= nvcc
+CXXFLAGS= --compiler-options "$(OPT) $(PIC) $(OMP)" $(ARCH) $(XOPTS) 
+
+CUDA_PATH ?= /appl/cuda/6.5
+INCLUDES = -I$(CUDA_PATH)/include -I$(CUDA_PATH)/samples/common/inc
+
+SOFLAGS =
+XLIBS	  = -L/usr/lib64/atlas -lptcblas -lcublas
+
+all: $(TARGET) $(TARGET2)
+
+$(TARGET): $(OBJS)
+	$(CXX) -o $@ $(CXXFLAGS) $(SOFLAGS) $(INCLUDES) $^ $(XLIBS)
+
+$(TARGET2): $(OBJS2)
+	$(CXX) -o $@ $(CXXFLAGS) $(SOFLAGS) $(INCLUDES) $^ $(XLIBS)  
+
+.SUFFIXES: .cu
+.cu.o:
+	$(CXX) -o $*.o -c $*.cu $(CXXFLAGS) $(SOFLAGS) $(INCLUDES)
+
+clean:
+	rm -f $(TARGET) $(OBJS); rm -f $(TARGET2) $(OBJS2)
+	
