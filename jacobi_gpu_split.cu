@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <helper_cuda.h>
+#include <string.h>
 
 #define BLOCK_SIZE 16
 
@@ -99,10 +100,19 @@ void print_matrix(int N, double *M0, double *M1)
 	}
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 
 	int N = 16;
 	int k = 1000;
+
+	    if (argc > 1)
+	    {
+		N = atoi(argv[1]);
+	    }
+	    if (argc > 2)
+	    {
+		k = atoi(argv[2]);
+	    }
 	int N_half = N/2;
 	int temp_N = N+2;
 	int size = temp_N * temp_N * sizeof(double);
@@ -176,7 +186,12 @@ int main() {
 	checkCudaErrors(cudaMemcpy(U_host1, U_dev1, size/2, cudaMemcpyDeviceToHost));
 	cudaSetDevice(0);
 	checkCudaErrors(cudaMemcpy(U_host0, U_dev0, size/2, cudaMemcpyDeviceToHost));
-	print_matrix(N, U_host0,U_host1);
+	if (argc > 3)
+	{
+		if(!strcmp(argv[3],"p")) {
+			print_matrix(N, U_host0,U_host1);
+		}
+	}
 	//freeing the memory in the end
 	free(U_host0);
 	free(U_old_host0);
