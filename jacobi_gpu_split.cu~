@@ -2,7 +2,7 @@
 #include <helper_cuda.h>
 #include <string.h>
 
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 32
 
 
 void init(int N, double delta, double *U0, double *U_old0, double *U1, double *U_old1, double *F) {

@@ -2,7 +2,7 @@
 #include <helper_cuda.h>
 #include <string.h>
 
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 32
 
 
 void init(int N, double delta, double *U0, double *U_old0, double *U1, double *U_old1, double *F) {
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
 	double delta = 2.0 / ((double) N - 1.0);
 	double delta2 = delta * delta;
 	
-	dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE);
+	dim3 DimBlock(BLOCK_SIZE/2, BLOCK_SIZE);
 	dim3 DimGrid((N+BLOCK_SIZE-1)/BLOCK_SIZE, (N + BLOCK_SIZE-1)/BLOCK_SIZE);
 	
 	double *U_dev0;
