@@ -91,7 +91,6 @@ __global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double 
             U_old[i * N + j] = (U[i * N + (j - 1)] + U[i * N + (j + 1)] + U[(i - 1) * N + j] + U[(i + 1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
         }
     }
-    __syncthreads();
 }
 
 void print_matrix(int N, double *M0, double *M1)
@@ -136,7 +135,7 @@ int main(int argc, char *argv[]) {
 	double delta = 2.0 / ((double) N - 1.0);
 	double delta2 = delta * delta;
 	
-	dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE);
+	dim3 DimBlock(BLOCK_SIZE/2, BLOCK_SIZE);
 	dim3 DimGrid((N+BLOCK_SIZE-1)/BLOCK_SIZE, (N + BLOCK_SIZE-1)/BLOCK_SIZE);
 	
 	double *U_dev0;
@@ -192,6 +191,7 @@ int main(int argc, char *argv[]) {
 		jacobi<<<DimGrid, DimBlock>>>(temp_N, temp_N/2, delta2, U_dev0, U_old_dev0, U_dev1, F_dev0,0);
 		cudaSetDevice(1);
 		jacobi<<<DimGrid, DimBlock>>>(temp_N, temp_N/2, delta2, U_dev1, U_old_dev1,  U_dev0, F_dev1,1);
+		checkCudaErrors(cudaDeviceSynchronize());
 		//swapping pointers
         	temp = U_dev0;
                 U_dev0 = U_old_dev0;
