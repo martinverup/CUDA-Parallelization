@@ -70,7 +70,7 @@ __global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double 
 	if(i < temp_N_half && j < N) {
 			// Calculate new value from surrounding points
 			if(!device && (i == temp_N_half-1)) {
-				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U_other[/*(i) * N +*/1 + j] + (delta2 * F[i * N + j])) * 0.25;
+				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U_other[/*(i+1) * N +*/j] + (delta2 * F[i * N + j])) * 0.25;
 			}else if(device && !i) {
 				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U_other[(temp_N_half-1) * N + j] + U[(i+1) * N + j] + (delta2 * F[i * N + j])) * 0.25;			
 			} else {
@@ -113,14 +113,14 @@ int main(int argc, char *argv[]) {
 	    {
 		k = atoi(argv[2]);
 	    }
-	int N_half = N/2;
+	
 	int temp_N = N+2;
 	int size = temp_N * temp_N * sizeof(double);
 	double delta = 2.0 / ((double) N - 1.0);
 	double delta2 = delta * delta;
 	
 	dim3 DimBlock(BLOCK_SIZE/2, BLOCK_SIZE);
-	dim3 DimGrid((N_half+BLOCK_SIZE-1)/BLOCK_SIZE, (N + BLOCK_SIZE-1)/BLOCK_SIZE);
+	dim3 DimGrid((N+BLOCK_SIZE-1)/BLOCK_SIZE, (N + BLOCK_SIZE-1)/BLOCK_SIZE);
 	
 	double *U_dev0;
 	double *U_dev1;
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
 	checkCudaErrors(cudaMemcpy(U_host0, U_dev0, size/2, cudaMemcpyDeviceToHost));
 	if (argc > 3)
 	{
-		if(!strcmp(atoi(argv[3]),"p")) {
+		if(!strcmp(argv[3],"p")) {
 			print_matrix(N, U_host0,U_host1);
 		}
 	}
