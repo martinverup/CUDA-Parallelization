@@ -5,98 +5,116 @@
 #define BLOCK_SIZE 32
 
 
-void init(int N, double delta, double *U0, double *U_old0, double *U1, double *U_old1, double *F) {
+void init(int N, double delta, double *U0, double *U_old0, double *U1, double *U_old1, double *F)
+{
 
-	int temp_N = N + 2; //the boundries
-	int temp_N_half = temp_N/2;
-	// Declare relative coordinates
-	double x = -1.0;
-	double y = -1.0;
-	double x_lower = 0.0;
-	double x_upper = 1.0 / 3.0;
-	double y_lower = -2.0 / 3.0;
-	double y_upper = -1.0 / 3.0;
-	int i, j;
-	for (i = 0; i < temp_N; i++)
-	{
-		for (j = 0; j < temp_N; j++)
-		{
-            	F[i * (temp_N)+j] = 0.0;
-		if(i >= temp_N_half) {
-			U1[(i-temp_N_half) *(temp_N) + j]= 0.0;
-			U_old1[(i-temp_N_half) * (temp_N) + j] = 0.0;
-		}else {
-			U0[i *(temp_N) + j]= 0.0;
-			U_old0[i * (temp_N) + j] = 0.0;
-		}
-		    // Place radiator for F in the right place
-		    if (x <= x_upper && x >= x_lower && y <= y_upper && y >= y_lower)
-		    {
-			// Set radiator value to 200 degrees
-			F[i * temp_N + j] = 200.0;
-		    }
-		    // Place temperature for walls
-		    if (i == (temp_N - 1) || i == 0 || j == (temp_N - 1))
-		    {	
-			if(i >= temp_N_half) {
-				// Set temperature to 20 degrees for 3 of the walls
-				U1[(i-temp_N_half) *(temp_N) + j]= 20.0;
-				U_old1[(i-temp_N_half) * (temp_N) + j] = 20.0;
-			}else {
-				// Set temperature to 20 degrees for 3 of the walls
-				U0[i *(temp_N) + j]= 20.0;
-				U_old0[i * (temp_N) + j] = 20.0;
-			}
-		    }	
-		    // Move relative coordinates by one unit of grid spacing
-		    y += delta;
-			
-		}
-	// Move relative coordinates by one unit of grid spacing
-	x += delta;
-	y = -1.0;
-	
-	}
-	
+    int temp_N = N + 2; //the boundries
+    int temp_N_half = temp_N / 2;
+    // Declare relative coordinates
+    double x = -1.0;
+    double y = -1.0;
+    double x_lower = 0.0;
+    double x_upper = 1.0 / 3.0;
+    double y_lower = -2.0 / 3.0;
+    double y_upper = -1.0 / 3.0;
+    int i, j;
+    for (i = 0; i < temp_N; i++)
+    {
+        for (j = 0; j < temp_N; j++)
+        {
+            F[i * (temp_N) + j] = 0.0;
+            if (i >= temp_N_half)
+            {
+                U1[(i - temp_N_half) * (temp_N) + j] = 0.0;
+                U_old1[(i - temp_N_half) * (temp_N) + j] = 0.0;
+            }
+            else
+            {
+                U0[i * (temp_N) + j] = 0.0;
+                U_old0[i * (temp_N) + j] = 0.0;
+            }
+            // Place radiator for F in the right place
+            if (x <= x_upper && x >= x_lower && y <= y_upper && y >= y_lower)
+            {
+                // Set radiator value to 200 degrees
+                F[i * temp_N + j] = 200.0;
+            }
+            // Place temperature for walls
+            if (i == (temp_N - 1) || i == 0 || j == (temp_N - 1))
+            {
+                if (i >= temp_N_half)
+                {
+                    // Set temperature to 20 degrees for 3 of the walls
+                    U1[(i - temp_N_half) * (temp_N) + j] = 20.0;
+                    U_old1[(i - temp_N_half) * (temp_N) + j] = 20.0;
+                }
+                else
+                {
+                    // Set temperature to 20 degrees for 3 of the walls
+                    U0[i * (temp_N) + j] = 20.0;
+                    U_old0[i * (temp_N) + j] = 20.0;
+                }
+            }
+            // Move relative coordinates by one unit of grid spacing
+            y += delta;
+
+        }
+        // Move relative coordinates by one unit of grid spacing
+        x += delta;
+        y = -1.0;
+
+    }
+
 }
 
-__global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double *U_old, double *U_other, double *F, int device) {  	
-	int i = blockDim.x * blockIdx.x + threadIdx.x + 1;
-	int j = blockDim.y * blockIdx.y + threadIdx.y + 1;
-	if(device) {
-		i = i-1;
-	}
-	if(((device && i<temp_N_half-1) || (!device && i<temp_N_half)) && j < N-1 && j > 0) {
-			// Calculate new value from surrounding points
-			if(!device && (i == temp_N_half-1)) {
-				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U_other[/*(i+1) * N +*/j] + (delta2 * F[i * N + j])) * 0.25;
-			}else if(device && !i) {
-				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U_other[(temp_N_half-1) * N + j] + U[(i+1) * N + j] + (delta2 * F[i * N + j])) * 0.25;			
-			} else {
-				U_old[i * N + j] = (U[i * N + (j-1)] + U[i * N + (j+1)] + U[(i-1) * N + j] + U[(i+1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
-		    }
-	}
-	__syncthreads();
+__global__ void jacobi(int N, int temp_N_half, double delta2, double *U, double *U_old, double *U_other, double *F, int device)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x + 1;
+    int j = blockDim.y * blockIdx.y + threadIdx.y + 1;
+    if (device)
+    {
+        i = i - 1;
+    }
+    if (((device && i < temp_N_half - 1) || (!device && i < temp_N_half)) && j < N - 1 && j > 0)
+    {
+        // Calculate new value from surrounding points
+        if (!device && (i == temp_N_half - 1))
+        {
+            U_old[i * N + j] = (U[i * N + (j - 1)] + U[i * N + (j + 1)] + U[(i - 1) * N + j] + U_other[/*(i+1) * N +*/j] + (delta2 * F[i * N + j])) * 0.25;
+        }
+        else if (device && !i)
+        {
+            U_old[i * N + j] = (U[i * N + (j - 1)] + U[i * N + (j + 1)] + U_other[(temp_N_half - 1) * N + j] + U[(i + 1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
+        }
+        else
+        {
+            U_old[i * N + j] = (U[i * N + (j - 1)] + U[i * N + (j + 1)] + U[(i - 1) * N + j] + U[(i + 1) * N + j] + (delta2 * F[i * N + j])) * 0.25;
+        }
+    }
+    __syncthreads();
 }
 
 void print_matrix(int N, double *M0, double *M1)
 {
-	int temp_N = N + 2;
-	int temp_N_half = temp_N/2;
-	int i, j;
-	for (i = 0; i < temp_N; i++)
-	{
-	for (j = 0; j < temp_N; j++)
-	{
-	    // Swap indecies to show correct x and y-axes
-	    	if(i >= temp_N_half) {
-	    		printf("%.2f\t", M1[(i-temp_N_half) * temp_N + j]);
-		} else {
-			printf("%.2f\t", M0[i * temp_N + j]);
-		}
-	}
-	printf("\n");
-	}
+    int temp_N = N + 2;
+    int temp_N_half = temp_N / 2;
+    int i, j;
+    for (i = 0; i < temp_N; i++)
+    {
+        for (j = 0; j < temp_N; j++)
+        {
+            // Swap indecies to show correct x and y-axes
+            if (i >= temp_N_half)
+            {
+                printf("%.2f\t", M1[(i - temp_N_half) * temp_N + j]);
+            }
+            else
+            {
+                printf("%.2f\t", M0[i * temp_N + j]);
+            }
+        }
+        printf("\n");
+    }
 }
 
 int main(int argc, char *argv[]) {

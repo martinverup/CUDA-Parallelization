@@ -101,7 +101,7 @@ extern "C" {
         checkCudaErrors(cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice));
 
         // Set grid and block size
-        dim3 DimGrid((n + BLOCK_SIZE - 1) / BLOCK_SIZE, (m + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 DimGrid((n + BLOCK_SIZE - 1) / BLOCK_SIZE, (m / 2 + BLOCK_SIZE - 1) / BLOCK_SIZE);
         dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE);
 
         // Run kernel
@@ -160,7 +160,7 @@ extern "C" {
         checkCudaErrors(cudaMemcpy(device_b, B, k * n * sizeof(double), cudaMemcpyHostToDevice));
 
         // Set grid and block size
-        dim3 DimGrid((n + BLOCK_SIZE - 1) / BLOCK_SIZE, (m + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        dim3 DimGrid((n / 4 + BLOCK_SIZE - 1) / BLOCK_SIZE, (m + BLOCK_SIZE - 1) / BLOCK_SIZE);
         dim3 DimBlock(BLOCK_SIZE, BLOCK_SIZE);
 
         // Run kernel
